@@ -12,6 +12,7 @@ interface Bus3DModelProps {
 
 const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   const modelRef = useRef<any>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const layerId = useRef<string>(`bus-model-${bus.VehicleId}`);
   const [altitude, setAltitude] = useState(5); // Start at 5 meters
   const [scale, setScale] = useState(5);
@@ -26,6 +27,27 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   };
 
   useEffect(() => {
+    // Create an invisible marker for click detection
+    if (!markerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'bus-marker';
+      el.style.width = '30px';
+      el.style.height = '30px';
+      el.style.cursor = 'pointer';
+      el.style.background = 'transparent';
+      
+      markerRef.current = new mapboxgl.Marker({
+        element: el,
+        anchor: 'center',
+      })
+        .setLngLat([bus.Longitude, bus.Latitude])
+        .addTo(map);
+      
+      el.addEventListener('click', onClick);
+    } else {
+      markerRef.current.setLngLat([bus.Longitude, bus.Latitude]);
+    }
+
     // Initial add of the custom layer
     if (!map.getLayer(layerId.current)) {
       addModelLayer();
@@ -39,8 +61,28 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       if (map.getLayer(layerId.current)) {
         map.removeLayer(layerId.current);
       }
+      if (markerRef.current) {
+        markerRef.current.remove();
+      }
+      
+      if (modelRef.current.busModel) {
+        console.log('Cleaning up model resources');
+        modelRef.current.scene.remove(modelRef.current.busModel);
+        modelRef.current.busModel.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(material => material.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+          }
+        });
+      }
     };
-  }, [bus, map]); // Dependencies to ensure updates when bus data changes
+  }, [bus, map]);
 
   const addModelLayer = () => {
     // Create a THREE.js camera and scene for the custom layer
@@ -48,7 +90,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
     const scene = new THREE.Scene();
     let renderer: THREE.WebGLRenderer;
     let busModel: THREE.Object3D;
-    let clickHandler: (e: mapboxgl.MapMouseEvent) => void;
 
     // Store scene reference for cleanup
     modelRef.current = { scene, busModel };
@@ -161,16 +202,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
         gl.clearDepth(1.0);
-
-        // Add click handler
-        clickHandler = (e: mapboxgl.MapMouseEvent) => {
-          const features = map.queryRenderedFeatures(e.point, { layers: [layerId.current] });
-          if (features.length > 0) {
-            onClick();
-          }
-        };
-        
-        map.on('click', clickHandler);
       },
       render: function(gl: WebGLRenderingContext, matrix: number[]) {
         if (!busModel) {
@@ -202,31 +233,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
         renderer.resetState();
         renderer.render(this.scene, this.camera);
         map.triggerRepaint();
-      },
-      onRemove: function(map: mapboxgl.Map) {
-        console.log('Layer being removed:', layerId.current);
-        map.off('click', clickHandler);
-        
-        if (modelRef.current.busModel) {
-          console.log('Cleaning up model resources');
-          modelRef.current.scene.remove(modelRef.current.busModel);
-          modelRef.current.busModel.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-              if (child.geometry) child.geometry.dispose();
-              if (child.material) {
-                if (Array.isArray(child.material)) {
-                  child.material.forEach(material => material.dispose());
-                } else {
-                  child.material.dispose();
-                }
-              }
-            }
-          });
-        }
-        
-        if (renderer) {
-          renderer.dispose();
-        }
       }
     };
 
@@ -245,9 +251,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
     }, 0);
   };
 
-  return (
-    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }} />
-  );
+  return null;
 };
 
 export default Bus3DModel;

@@ -14,6 +14,13 @@ interface MapViewProps {
   className?: string;
 }
 
+interface MapPosition {
+  center: [number, number];
+  zoom: number;
+  pitch: number;
+  bearing: number;
+}
+
 const MapView: React.FC<MapViewProps> = ({ className }) => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -24,6 +31,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [previousMapPosition, setPreviousMapPosition] = useState<MapPosition | null>(null);
 
   // Initialize map
   useEffect(() => {
@@ -184,19 +192,46 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
 
   // Handle bus selection
   const handleBusClick = (bus: BusData) => {
+    if (!map.current) return;
+    
+    // Store current map position before flying to bus
+    setPreviousMapPosition({
+      center: map.current.getCenter().toArray() as [number, number],
+      zoom: map.current.getZoom(),
+      pitch: map.current.getPitch(),
+      bearing: map.current.getBearing()
+    });
+    
     setSelectedBus(bus);
     setShowInfoPanel(true);
     
     // Fly to the selected bus with enhanced zoom and pitch
-    if (map.current) {
+    map.current.flyTo({
+      center: [bus.Longitude, bus.Latitude],
+      zoom: 18, // Closer zoom
+      pitch: 60,
+      bearing: bus.Heading || 0, // Orient the map to match bus heading
+      speed: 0.8,
+      essential: true, // This ensures the animation happens
+    });
+  };
+
+  // Handle info panel close
+  const handleInfoPanelClose = () => {
+    setShowInfoPanel(false);
+    setSelectedBus(null);
+    
+    // Restore previous map position if available
+    if (map.current && previousMapPosition) {
       map.current.flyTo({
-        center: [bus.Longitude, bus.Latitude],
-        zoom: 18, // Closer zoom
-        pitch: 60,
-        bearing: bus.Heading || 0, // Orient the map to match bus heading
+        center: previousMapPosition.center,
+        zoom: previousMapPosition.zoom,
+        pitch: previousMapPosition.pitch,
+        bearing: previousMapPosition.bearing,
         speed: 0.8,
-        essential: true, // This ensures the animation happens
+        essential: true,
       });
+      setPreviousMapPosition(null);
     }
   };
 
@@ -218,7 +253,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       <InfoPanel 
         bus={selectedBus} 
         isVisible={showInfoPanel && selectedBus !== null} 
-        onClose={() => setShowInfoPanel(false)}
+        onClose={handleInfoPanelClose}
       />
       
       {/* Map controls overlay */}

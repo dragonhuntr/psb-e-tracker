@@ -211,7 +211,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       zoom: 18, // Closer zoom
       pitch: 60,
       bearing: bus.Heading || 0, // Orient the map to match bus heading
-      speed: 0.8,
+      speed: 4,
       essential: true, // This ensures the animation happens
     });
   };
@@ -228,7 +228,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
         zoom: previousMapPosition.zoom,
         pitch: previousMapPosition.pitch,
         bearing: previousMapPosition.bearing,
-        speed: 0.8,
+        speed: 10,
         essential: true,
       });
       setPreviousMapPosition(null);

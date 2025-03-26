@@ -14,17 +14,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   const modelRef = useRef<any>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const layerId = useRef<string>(`bus-model-${bus.VehicleId}`);
-  const [altitude, setAltitude] = useState(5); // Start at 5 meters
-  const [scale, setScale] = useState(5);
-
-  const focusOnBus = () => {
-    map.flyTo({
-      center: [bus.Longitude, bus.Latitude],
-      zoom: 18,  // Close zoom level to see the model clearly
-      pitch: 60, // Tilt the map to see the 3D model better
-      bearing: bus.Heading || 0  // Align map with bus direction
-    });
-  };
 
   useEffect(() => {
     // Create an invisible marker for click detection
@@ -96,7 +85,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
 
     // Bus origin from API data - ensure it's the correct format [lng, lat]
     const modelOrigin: [number, number] = [bus.Longitude, bus.Latitude];
-    const modelAltitude = altitude; // Use the state variable
+    const modelAltitude = 5
     
     // Only keep heading rotation, remove other rotations
     const headingRadians = (bus.Heading || 0) * (Math.PI / 180);

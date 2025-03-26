@@ -74,7 +74,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       rotateX: 0, // No X rotation
       rotateY: 0, // No Y rotation
       rotateZ: modelRotate[2], // Only keep heading rotation
-      scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits() * 2 * 0.05 // Increased scale factor
+      scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits() * 0.05 // Increased scale factor
     };
 
     const customLayer = {
@@ -82,16 +82,11 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       type: 'custom' as const,
       renderingMode: '3d' as const,
       onAdd: function(map: mapboxgl.Map, gl: WebGLRenderingContext) {
-        console.log('Layer onAdd called:', layerId.current);
         this.camera = camera;
         this.scene = scene;
 
-        // Create a helper grid for debugging (remove in production)
-        const gridHelper = new THREE.GridHelper(100, 10);
-        this.scene.add(gridHelper);
-
-        // Add lights with more intensity
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 2); // Increased intensity
+        // Add lights
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
         directionalLight.position.set(0, -70, 100).normalize();
         this.scene.add(directionalLight);
 
@@ -99,30 +94,26 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
         directionalLight2.position.set(0, 70, 100).normalize();
         this.scene.add(directionalLight2);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increased ambient light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambientLight);
 
-        // Load the bus GLB model with enhanced error handling
+        // Load the bus GLB model
         const loader = new GLTFLoader();
-        console.log('Starting to load model from:', '/Bus.glb');
         loader.load(
           '/Bus.glb',
           (gltf) => {
             busModel = gltf.scene;
             modelRef.current.busModel = busModel;
             
-            // Add initial rotation to correct model orientation
             busModel.rotation.x = Math.PI / 2;
             
-            // Calculate bounding box before any transformations
             const box = new THREE.Box3().setFromObject(busModel);
             const center = box.getCenter(new THREE.Vector3());
             
-            // Center the model on the grid (0,0,0)
             busModel.position.set(
-              -center.x,  // Center X axis
-              -box.min.y, // Place bottom on grid
-              -center.z   // Center Z axis
+              -center.x,
+              -box.min.y,
+              -center.z
             );
             
             busModel.traverse((child) => {
@@ -143,67 +134,35 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
                 
                 child.material = newMaterial;
                 child.renderOrder = 1000;
-                
-                // Log each mesh
-                console.log('Mesh found:', {
-                  geometry: child.geometry,
-                  material: child.material,
-                  position: child.position.toArray()
-                });
               }
             });
 
-            // Calculate bounding box
-            const boxAfter = new THREE.Box3().setFromObject(busModel);
-            console.log('Bounding box:', {
-              min: boxAfter.min.toArray(),
-              max: boxAfter.max.toArray(),
-              size: boxAfter.getSize(new THREE.Vector3()).toArray()
-            });
-
             busModel.updateMatrixWorld(true);
-            
-            // Final position check
-            console.log('Final model position:', {
-              position: busModel.position.toArray(),
-              scale: busModel.scale.toArray(),
-              rotation: busModel.rotation.toArray()
-            });
-            
             this.scene.add(busModel);
           },
-          (progress) => {
-            const percent = Math.round(progress.loaded / progress.total * 100);
-            console.log(`Loading model: ${percent}%`);
-          },
+          undefined,
           (error) => {
             console.error('Error loading bus model:', error);
-            // Add a fallback cube for debugging
-            const geometry = new THREE.BoxGeometry(5, 5, 5);
-            const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-            const cube = new THREE.Mesh(geometry, material);
-            this.scene.add(cube);
           }
         );
 
-        // Configure renderer with proper settings
+        // Configure renderer
         renderer = new THREE.WebGLRenderer({
           canvas: map.getCanvas(),
           context: gl,
           antialias: true,
           alpha: true,
-          logarithmicDepthBuffer: true // Add this to help with depth issues
+          logarithmicDepthBuffer: true
         });
         
         renderer.autoClear = false;
         renderer.setClearColor(0x000000, 0);
         
-        // Update WebGL context settings
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
         gl.clearDepth(1.0);
 
-        // Add click handler for the bus
+        // Add click handler
         clickHandler = (e: mapboxgl.MapMouseEvent) => {
           const features = map.queryRenderedFeatures(e.point, { layers: [layerId.current] });
           if (features.length > 0) {
@@ -218,20 +177,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
           return;
         }
 
-        // Log position and transformation more frequently during development
-        if (Math.random() < 0.05) { // Increased logging frequency to 5%
-          const worldPosition = new THREE.Vector3();
-          busModel.getWorldPosition(worldPosition);
-          console.log('Model world position:', {
-            x: worldPosition.x,
-            y: worldPosition.y,
-            z: worldPosition.z,
-            heading: bus.Heading,
-            modelTransform
-          });
-        }
-
-        // Create rotation matrices
         const rotationZ = new THREE.Matrix4().makeRotationAxis(
           new THREE.Vector3(0, 0, 1),
           modelTransform.rotateZ
@@ -256,8 +201,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
         this.camera.projectionMatrix = m.multiply(l);
         renderer.resetState();
         renderer.render(this.scene, this.camera);
-        
-        // Request a new frame to maintain smooth animation
         map.triggerRepaint();
       },
       onRemove: function(map: mapboxgl.Map) {
@@ -303,60 +246,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   };
 
   return (
-    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }}>
-      <div style={{ 
-        backgroundColor: 'white', 
-        padding: '10px', 
-        borderRadius: '4px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-        marginBottom: '10px'
-      }}>
-        <div style={{ marginBottom: '10px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Altitude (meters): {altitude}
-          </label>
-          <input 
-            type="range" 
-            min="0" 
-            max="20" // Reduced from 50 to 20 meters
-            value={altitude} 
-            onChange={(e) => {
-              setAltitude(Number(e.target.value));
-              updateModelPosition();
-            }}
-          />
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Scale: {scale}
-          </label>
-          <input 
-            type="range" 
-            min="0.1" 
-            max="2" 
-            step="0.1"
-            value={scale} 
-            onChange={(e) => {
-              setScale(Number(e.target.value));
-              updateModelPosition();
-            }}
-          />
-        </div>
-        <button 
-          onClick={focusOnBus}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#fff',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            width: '100%'
-          }}
-        >
-          Focus on Bus
-        </button>
-      </div>
-    </div>
+    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }} />
   );
 };
 

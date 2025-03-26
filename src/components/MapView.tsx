@@ -35,7 +35,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       container: mapContainer.current,
       style: "mapbox://styles/limit-/cm36l188r015v01qkhf10d7pa",
       center: [-79.979146, 42.117963],
-      zoom: 16.09,
+      zoom: 15.7,
       pitch: 43.00,
       bearing: 8.80,
       antialias: true,
@@ -99,44 +99,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
         
         toast.success(`Found ${data.length} active buses`);
       } else {
-        // Set default bus location when no buses are found
-        const defaultBus: BusData = {
-          VehicleId: 0,
-          Latitude: 42.118093,
-          Longitude: -79.982131,
-          Heading: 0,
-          Speed: 0,
-          LastUpdated: new Date().toISOString(),
-          BlockFareboxId: 0,
-          CommStatus: "0",
-          Destination: "",
-          Deviation: 0,
-          Direction: "0",
-          DirectionLong: "0",
-          DisplayStatus: "0",
-          StopId: 0,
-          CurrentStatus: "",
-          DriverName: "",
-          DriverLastName: "",
-          DriverFirstName: "",
-          DriverFareboxId: 0,
-          VehicleFareboxId: 0,
-          GPSStatus: 0,
-          LastStop: "",
-          Name: "",
-          OccupancyStatus: 0,
-          OnBoard: 0,
-          OpStatus: "",
-          RouteId: 0,
-          RunId: 0,
-          TripId: 0,
-          SeatingCapacity: 0,
-          TotalCapacity: 0,
-          PropertyName: "",
-          OccupancyStatusReportLabel: ""
-        };
-        setBuses([defaultBus]);
-        toast.warning("No active buses found - showing default location");
+        toast.warning("No active buses found");
       }
     } catch (error) {
       console.error("Error fetching bus data:", error);
@@ -266,14 +229,6 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
           <div className="text-sm text-gray-600">Route 18 Tracking</div>
         </div>
       </div>
-      
-      {/* Debug info - only during development */}
-      {buses.length > 0 && (
-        <div className="fixed bottom-20 left-6 z-10 bg-white/80 p-2 rounded-md text-xs shadow-md">
-          <div>Bus Count: {buses.length}</div>
-          <div>Latest Bus Position: {buses[0].Latitude.toFixed(6)}, {buses[0].Longitude.toFixed(6)}</div>
-        </div>
-      )}
     </div>
   );
 };

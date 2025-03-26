@@ -1,0 +1,153 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 210 40% 2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 40% 2%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 40% 2%;
+
+    --primary: 210 100% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 210 40% 2%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 25% 40%;
+
+    --accent: 210 20% 96%;
+    --accent-foreground: 210 40% 2%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 210 100% 40%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 240 6% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  .dark {
+    --background: 210 40% 2%;
+    --foreground: 210 20% 98%;
+
+    --card: 210 40% 2%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 210 40% 2%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 210 100% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 10%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 210 40% 10%;
+    --muted-foreground: 215 25% 65%;
+
+    --accent: 210 40% 10%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 210 40% 10%;
+    --input: 210 40% 10%;
+    --ring: 210 100% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer components {
+  /* Glass morphism */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md backdrop-saturate-150 border border-white/20;
+  }
+  
+  .glass-dark {
+    @apply bg-black/60 backdrop-blur-md backdrop-saturate-150 border border-white/10;
+  }
+  
+  .map-container {
+    width: 100%;
+    height: 100vh;
+  }
+  
+  /* Disable map element outlines */
+  .mapboxgl-canvas:focus {
+    outline: none;
+  }
+  
+  .mapboxgl-ctrl-bottom-left,
+  .mapboxgl-ctrl-bottom-right {
+    @apply hidden;
+  }
+  
+  .mapboxgl-ctrl-attrib {
+    @apply opacity-30 hover:opacity-80 transition-opacity;
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Typography adjustments */
+.font-sans {
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}

@@ -25,6 +25,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const routeSourcesRef = useRef<string[]>([]);
+  const navigationControl = useRef<mapboxgl.NavigationControl | null>(null);
   
   const [buses, setBuses] = useState<BusData[]>([]);
   const [selectedBus, setSelectedBus] = useState<BusData | null>(null);
@@ -50,13 +51,11 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
     });
 
     // Add navigation controls
-    map.current.addControl(
-      new mapboxgl.NavigationControl({
-        visualizePitch: true,
-        showCompass: true,
-      }),
-      "top-right"
-    );
+    navigationControl.current = new mapboxgl.NavigationControl({
+      visualizePitch: true,
+      showCompass: true,
+    });
+    map.current.addControl(navigationControl.current, "top-right");
 
     // Map load complete
     map.current.on("load", () => {
@@ -190,6 +189,40 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
     };
   }, [isMapLoaded, selectedBus]);
 
+  // Function to disable map interactions
+  const disableMapInteractions = () => {
+    if (!map.current) return;
+    
+    // Disable map interactions
+    map.current.dragPan.disable();
+    map.current.scrollZoom.disable();
+    map.current.doubleClickZoom.disable();
+    map.current.touchZoomRotate.disable();
+    map.current.keyboard.disable();
+    
+    // Remove navigation control
+    if (navigationControl.current) {
+      map.current.removeControl(navigationControl.current);
+    }
+  };
+
+  // Function to enable map interactions
+  const enableMapInteractions = () => {
+    if (!map.current) return;
+    
+    // Enable map interactions
+    map.current.dragPan.enable();
+    map.current.scrollZoom.enable();
+    map.current.doubleClickZoom.enable();
+    map.current.touchZoomRotate.enable();
+    map.current.keyboard.enable();
+    
+    // Add back navigation control
+    if (navigationControl.current && !map.current.hasControl(navigationControl.current)) {
+      map.current.addControl(navigationControl.current, "top-right");
+    }
+  };
+
   // Handle bus selection
   const handleBusClick = (bus: BusData) => {
     if (!map.current) return;
@@ -214,12 +247,18 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       speed: 4,
       essential: true, // This ensures the animation happens
     });
+
+    // Disable map interactions after the animation
+    map.current.once('moveend', disableMapInteractions);
   };
 
   // Handle info panel close
   const handleInfoPanelClose = () => {
     setShowInfoPanel(false);
     setSelectedBus(null);
+    
+    // Enable map interactions before starting the animation
+    enableMapInteractions();
     
     // Restore previous map position if available
     if (map.current && previousMapPosition) {

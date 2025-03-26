@@ -33,6 +33,9 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [previousMapPosition, setPreviousMapPosition] = useState<MapPosition | null>(null);
+  
+  // Derived state to track when we're actively following a bus
+  const isFollowingBus = selectedBus !== null && showInfoPanel;
 
   // Initialize map
   useEffect(() => {
@@ -96,11 +99,15 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
         console.log("Bus data loaded:", data);
         setBuses(data);
         
-        // If selected bus exists, update its data
-        if (selectedBus) {
+        // If we're following a bus, update its position
+        if (isFollowingBus && selectedBus) {
           const updatedSelectedBus = data.find(bus => bus.VehicleId === selectedBus.VehicleId);
-          if (updatedSelectedBus) {
+          if (updatedSelectedBus && map.current) {
             setSelectedBus(updatedSelectedBus);
+            
+            // Instantly update camera position to follow bus
+            map.current.setCenter([updatedSelectedBus.Longitude, updatedSelectedBus.Latitude]);
+            map.current.setBearing(updatedSelectedBus.Heading || 0);
           }
         }
         
@@ -291,7 +298,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       {/* Info panel - only shown when a bus is selected */}
       <InfoPanel 
         bus={selectedBus} 
-        isVisible={showInfoPanel && selectedBus !== null} 
+        isVisible={isFollowingBus} 
         onClose={handleInfoPanelClose}
       />
       

@@ -250,7 +250,6 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       center: [bus.Longitude, bus.Latitude],
       zoom: 18, // Closer zoom
       pitch: 60,
-      bearing: bus.Heading || 0, // Orient the map to match bus heading
       speed: 4,
       essential: true, // This ensures the animation happens
     });

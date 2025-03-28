@@ -66,6 +66,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   // Update model transform
   const getModelTransform = useCallback((zoom: number) => {
     const modelOrigin: [number, number] = [bus.Longitude, bus.Latitude];
+    // 25 to correct the model rotation offset
     const modelRotate = [0, 0, ((bus.Heading + 25) * Math.PI) / 180];
 
     // Add elevation adjustment based on zoom level
@@ -106,10 +107,12 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       // Create marker element
       const el = document.createElement('div');
       el.className = 'bus-marker';
-      el.style.width = '30px';
-      el.style.height = '30px';
+      el.style.width = '100px';
+      el.style.height = '100px';
       el.style.cursor = 'pointer';
-      el.style.background = 'transparent';
+      el.style.background = DEBUG_MODE ? 'rgba(255, 0, 0, 0.2)' : 'transparent';
+      el.style.borderRadius = '50%';
+      el.style.transform = 'translate(-50%, -50%)';
       
       // Create and add marker
       markerRef.current = new mapboxgl.Marker({
@@ -313,6 +316,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
             modelRef.current.busModel = busModel;
             
             busModel.rotation.x = Math.PI / 2;
+            busModel.rotation.y = Math.PI;
             
             const box = new THREE.Box3().setFromObject(busModel);
             const center = box.getCenter(new THREE.Vector3());

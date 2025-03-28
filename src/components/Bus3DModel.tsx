@@ -11,7 +11,7 @@ interface Bus3DModelProps {
 }
 
 // Set to true for development, can be made configurable later
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 
 const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   const modelRef = useRef<any>(null);
@@ -39,6 +39,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   });
   const [showBoundingBox, setShowBoundingBox] = useState(true);
   const [showAxis, setShowAxis] = useState(true);
+  const [showMarker, setShowMarker] = useState(true);
   
   // Calculate scale based on zoom level
   const calculateScale = useCallback((zoom: number) => {
@@ -113,6 +114,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       el.style.background = DEBUG_MODE ? 'rgba(255, 0, 0, 0.2)' : 'transparent';
       el.style.borderRadius = '50%';
       el.style.transform = 'translate(-50%, -50%)';
+      el.style.display = showMarker ? 'block' : 'none';
       
       // Create and add marker
       markerRef.current = new mapboxgl.Marker({
@@ -125,8 +127,10 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       // Add click handler
       el.addEventListener('click', onClick);
     } else {
-      // Update marker position
+      // Update marker position and visibility
       markerRef.current.setLngLat([bus.Longitude, bus.Latitude]);
+      const el = markerRef.current.getElement();
+      el.style.display = showMarker ? 'block' : 'none';
     }
   };
 
@@ -228,26 +232,16 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
     updateDebugVisibility();
   }, [showAxis, showBoundingBox, updateDebugVisibility]);
 
+  // Initialize layer only once
   useEffect(() => {
-    // Update marker position and click handler
-    updateMarker();
-    
-    // Initial add of the custom layer
     if (!map.getLayer(layerId.current)) {
       addModelLayer();
-    } else {
-      // Update position of existing model
-      updateModelPosition();
     }
 
+    // Only clean up when component unmounts
     return () => {
-      // Clean up when component unmounts or updates
       if (map.getLayer(layerId.current)) {
         map.removeLayer(layerId.current);
-      }
-      if (markerRef.current) {
-        markerRef.current.remove();
-        markerRef.current = null;
       }
       
       if (modelRef.current?.busModel) {
@@ -270,7 +264,18 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       // Clean up debug objects
       cleanupDebugObjects();
     };
-  }, [bus, map, onClick, updateDebugVisibility]);
+  }, [map]); // Only depend on map
+
+  // Handle marker updates
+  useEffect(() => {
+    updateMarker();
+    return () => {
+      if (markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+    };
+  }, [bus.Longitude, bus.Latitude, showMarker]);
 
   const addModelLayer = () => {
     // Create a THREE.js camera and scene for the custom layer
@@ -413,16 +418,6 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
     map.addLayer(customLayer, 'bus-model-layer-group');
   };
 
-  const updateModelPosition = () => {
-    if (map.getLayer(layerId.current)) {
-      map.removeLayer(layerId.current);
-    }
-    // Small timeout to ensure proper cleanup before adding new layer
-    setTimeout(() => {
-      addModelLayer();
-    }, 0);
-  };
-
   return (
     <>
       {DEBUG_MODE && (
@@ -466,6 +461,15 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
                 className="accent-blue-500"
               />
               <span>Show Axis</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer mt-1">
+              <input
+                type="checkbox"
+                checked={showMarker}
+                onChange={(e) => setShowMarker(e.target.checked)}
+                className="accent-blue-500"
+              />
+              <span>Show Marker</span>
             </label>
           </div>
         </div>

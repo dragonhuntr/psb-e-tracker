@@ -33,6 +33,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [previousMapPosition, setPreviousMapPosition] = useState<MapPosition | null>(null);
+  const [isLayerGroupReady, setIsLayerGroupReady] = useState(false);
   
   // Derived state to track when we're actively following a bus
   const isFollowingBus = selectedBus !== null && showInfoPanel;
@@ -71,6 +72,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
         }
       }, 'poi-label');
 
+      setIsLayerGroupReady(true);
       toast.success("Map loaded successfully");
       setIsMapLoaded(true);
       
@@ -222,7 +224,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
         zoom: previousMapPosition.zoom,
         pitch: previousMapPosition.pitch,
         bearing: previousMapPosition.bearing,
-        speed: 10,
+        speed: 10.0,
         essential: true,
       });
       setPreviousMapPosition(null);
@@ -234,7 +236,7 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       <div ref={mapContainer} className="map-container" />
       
       {/* Render route layers */}
-      {map.current && routeData && isMapLoaded && (
+      {map.current && routeData && isMapLoaded && isLayerGroupReady && (
         <RouteLayer 
           map={map.current} 
           routeData={routeData}
@@ -242,14 +244,16 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       )}
       
       {/* Render 3D bus models */}
-      {map.current && buses.map(bus => (
-        <Bus3DModel 
-          key={`bus-model-${bus.VehicleId}`} 
-          bus={bus} 
-          map={map.current as mapboxgl.Map}
-          onClick={() => handleBusClick(bus)}
-        />
-      ))}
+      {map.current && buses.length > 0 && isMapLoaded && isLayerGroupReady && (
+        buses.map(bus => (
+          <Bus3DModel 
+            key={`bus-model-${bus.VehicleId}`} 
+            bus={bus} 
+            map={map.current as mapboxgl.Map}
+            onClick={() => handleBusClick(bus)}
+          />
+        ))
+      )}
       
       {/* Info panel - only shown when a bus is selected */}
       <InfoPanel 

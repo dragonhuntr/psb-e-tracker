@@ -10,53 +10,14 @@ interface Bus3DModelProps {
   onClick: () => void;
 }
 
-interface DebugStatsProps {
-  stats: {
-    zoom: number;
-    scale: number;
-    scaleFactor: number;
-    zoomFactor: number;
-    elevation: number;
-    modelX: number;
-    modelY: number;
-    modelZ: number;
-    heading: number;
-  };
-}
-
-const DebugStats: React.FC<DebugStatsProps> = ({ stats }) => {
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      background: 'rgba(0,0,0,0.8)',
-      color: 'white',
-      padding: '10px',
-      borderRadius: '5px',
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      zIndex: 1000,
-    }}>
-      <div>Zoom Level: {stats.zoom.toFixed(2)}</div>
-      <div>Scale: {stats.scale.toFixed(4)}</div>
-      <div>Scale Factor: {stats.scaleFactor.toFixed(4)}</div>
-      <div>Zoom Factor: {stats.zoomFactor.toFixed(4)}</div>
-      <div>Elevation: {stats.elevation.toFixed(2)}m</div>
-      <div>Model Position:</div>
-      <div>X: {stats.modelX.toFixed(6)}</div>
-      <div>Y: {stats.modelY.toFixed(6)}</div>
-      <div>Z: {stats.modelZ.toFixed(6)}</div>
-      <div>Heading: {stats.heading.toFixed(2)}°</div>
-    </div>
-  );
-};
+// Set to true for development, can be made configurable later
+const DEBUG_MODE = true;
 
 const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   const modelRef = useRef<any>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const layerId = useRef<string>(`bus-model-${bus.VehicleId}`);
-  const [debugStats, setDebugStats] = useState<DebugStatsProps['stats']>({
+  const [debugStats, setDebugStats] = useState({
     zoom: 0,
     scale: 0,
     scaleFactor: 0,
@@ -226,6 +187,45 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambientLight);
 
+        // Add scene-level axis helper and bounding box in debug mode
+        if (DEBUG_MODE) {
+          // Create custom thick axes
+          const axes = [
+            { color: 0xff0000, start: [0, 0, 0], end: [2000, 0, 0] }, // X axis - red
+            { color: 0x00ff00, start: [0, 0, 0], end: [0, 2000, 0] }, // Y axis - green
+            { color: 0x0000ff, start: [0, 0, 0], end: [0, 0, 2000] }  // Z axis - blue
+          ];
+
+          axes.forEach(axis => {
+            const material = new THREE.LineBasicMaterial({ 
+              color: axis.color,
+              linewidth: 3
+            });
+            const points = [
+              new THREE.Vector3(...axis.start),
+              new THREE.Vector3(...axis.end)
+            ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, material);
+            this.scene.add(line);
+          });
+
+          // Add wireframe bounding box
+          const boxSize = 2000;
+          const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+          const edges = new THREE.EdgesGeometry(boxGeometry);
+          const boxMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xffffff,  // White color for the box
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.5
+          });
+          const boundingBox = new THREE.LineSegments(edges, boxMaterial);
+          // Center the box
+          boundingBox.position.set(boxSize/2, boxSize/2, boxSize/2);
+          this.scene.add(boundingBox);
+        }
+
         // Load the bus GLB model
         const loader = new GLTFLoader();
         loader.load(
@@ -239,9 +239,10 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
             const box = new THREE.Box3().setFromObject(busModel);
             const center = box.getCenter(new THREE.Vector3());
             
+            // Center the model on all axes
             busModel.position.set(
               -center.x,
-              -box.min.y,
+              -center.y,
               -center.z
             );
             
@@ -327,7 +328,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
 
     // Add the custom layer to the map
     console.log('Adding layer to map:', layerId.current);
-    map.addLayer(customLayer);
+    map.addLayer(customLayer, 'bus-model-layer-group');
   };
 
   const updateModelPosition = () => {
@@ -342,7 +343,31 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
 
   return (
     <>
-      <DebugStats stats={debugStats} />
+      {DEBUG_MODE && (
+        <div style={{
+          position: 'fixed',
+          top: '10px',
+          right: '10px',
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          padding: '10px',
+          borderRadius: '5px',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          zIndex: 1000,
+        }}>
+          <div>Zoom Level: {debugStats.zoom.toFixed(2)}</div>
+          <div>Scale: {debugStats.scale.toFixed(4)}</div>
+          <div>Scale Factor: {debugStats.scaleFactor.toFixed(4)}</div>
+          <div>Zoom Factor: {debugStats.zoomFactor.toFixed(4)}</div>
+          <div>Elevation: {debugStats.elevation.toFixed(2)}m</div>
+          <div>Model Position:</div>
+          <div>X: {debugStats.modelX.toFixed(6)}</div>
+          <div>Y: {debugStats.modelY.toFixed(6)}</div>
+          <div>Z: {debugStats.modelZ.toFixed(6)}</div>
+          <div>Heading: {debugStats.heading.toFixed(2)}°</div>
+        </div>
+      )}
     </>
   );
 };

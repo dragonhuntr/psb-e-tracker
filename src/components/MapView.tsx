@@ -4,6 +4,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { BusData, fetchBusLocations } from "@/services/busApi";
 import { fetchRouteData, RouteData } from "@/services/routeApi";
 import Bus3DModel from "./Bus3DModel";
+import RouteLayer from "./RouteLayer";
 import InfoPanel from "./InfoPanel";
 import { toast } from "sonner";
 
@@ -24,7 +25,6 @@ interface MapPosition {
 const MapView: React.FC<MapViewProps> = ({ className }) => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const routeSourcesRef = useRef<string[]>([]);
   const navigationControl = useRef<mapboxgl.NavigationControl | null>(null);
   
   const [buses, setBuses] = useState<BusData[]>([]);
@@ -62,6 +62,15 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
 
     // Map load complete
     map.current.on("load", () => {
+      // Create a layer group for bus models to help with layer ordering
+      map.current!.addLayer({
+        id: 'bus-model-layer-group',
+        type: 'background',
+        paint: {
+          'background-opacity': 0
+        }
+      }, 'poi-label');
+
       toast.success("Map loaded successfully");
       setIsMapLoaded(true);
       
@@ -120,66 +129,6 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
       toast.error("Failed to load bus locations");
     }
   };
-  
-  // Add route layers to map
-  useEffect(() => {
-    if (!map.current || !routeData || !isMapLoaded) return;
-    
-    // Clean up existing sources and layers
-    routeSourcesRef.current.forEach(id => {
-      if (map.current?.getLayer(id)) {
-        map.current.removeLayer(id);
-      }
-      if (map.current?.getSource(id)) {
-        map.current.removeSource(id);
-      }
-    });
-    
-    routeSourcesRef.current = [];
-    
-    // Add each path as a separate line
-    routeData.paths.forEach((path, pathIndex) => {
-      const sourceId = `route-source-${pathIndex}`;
-      const layerId = `route-layer-${pathIndex}`;
-      
-      // Convert coordinates to GeoJSON format
-      const coordinates = path.coordinates.map(coord => 
-        [coord.longitude, coord.latitude]
-      );
-      
-      // Add source
-      map.current!.addSource(sourceId, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates
-          }
-        }
-      });
-      
-      // Add line layer
-      map.current!.addLayer({
-        id: layerId,
-        type: 'line',
-        source: sourceId,
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#07c1ff',
-          'line-width': 4,
-          'line-opacity': 0.8
-        }
-      });
-      
-      routeSourcesRef.current.push(sourceId);
-    });
-    
-  }, [routeData, isMapLoaded]);
 
   // Set up polling for bus data
   useEffect(() => {
@@ -283,6 +232,14 @@ const MapView: React.FC<MapViewProps> = ({ className }) => {
   return (
     <div className={className}>
       <div ref={mapContainer} className="map-container" />
+      
+      {/* Render route layers */}
+      {map.current && routeData && isMapLoaded && (
+        <RouteLayer 
+          map={map.current} 
+          routeData={routeData}
+        />
+      )}
       
       {/* Render 3D bus models */}
       {map.current && buses.map(bus => (

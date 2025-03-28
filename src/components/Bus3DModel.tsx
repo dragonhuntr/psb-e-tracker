@@ -17,6 +17,15 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
   const modelRef = useRef<any>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const layerId = useRef<string>(`bus-model-${bus.VehicleId}`);
+  const debugObjectsRef = useRef<{
+    axes: THREE.Line[];
+    boundingBox: THREE.LineSegments | null;
+    scene: THREE.Scene | null;
+  }>({
+    axes: [],
+    boundingBox: null,
+    scene: null
+  });
   const [debugStats, setDebugStats] = useState({
     zoom: 0,
     scale: 0,
@@ -28,6 +37,8 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
     modelZ: 0,
     heading: 0,
   });
+  const [showBoundingBox, setShowBoundingBox] = useState(true);
+  const [showAxis, setShowAxis] = useState(true);
   
   // Calculate scale based on zoom level
   const calculateScale = useCallback((zoom: number) => {
@@ -116,6 +127,104 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
     }
   };
 
+  const cleanupDebugObjects = () => {
+    // Remove and dispose of existing debug objects
+    debugObjectsRef.current.axes.forEach(axis => {
+      if (axis.geometry) axis.geometry.dispose();
+      if (axis.material) {
+        if (Array.isArray(axis.material)) {
+          axis.material.forEach(m => m.dispose());
+        } else {
+          axis.material.dispose();
+        }
+      }
+      debugObjectsRef.current.scene?.remove(axis);
+    });
+    
+    if (debugObjectsRef.current.boundingBox) {
+      if (debugObjectsRef.current.boundingBox.geometry) {
+        debugObjectsRef.current.boundingBox.geometry.dispose();
+      }
+      if (debugObjectsRef.current.boundingBox.material) {
+        if (Array.isArray(debugObjectsRef.current.boundingBox.material)) {
+          debugObjectsRef.current.boundingBox.material.forEach(m => m.dispose());
+        } else {
+          debugObjectsRef.current.boundingBox.material.dispose();
+        }
+      }
+      debugObjectsRef.current.scene?.remove(debugObjectsRef.current.boundingBox);
+    }
+    
+    debugObjectsRef.current.axes = [];
+    debugObjectsRef.current.boundingBox = null;
+  };
+
+  const createDebugObjects = (scene: THREE.Scene) => {
+    debugObjectsRef.current.scene = scene;
+    
+    // Clean up existing debug objects if they exist
+    cleanupDebugObjects();
+    
+    // Create axes
+    const axes = [
+      { color: 0xff0000, start: [0, 0, 0], end: [2000, 0, 0] }, // X axis - red
+      { color: 0x00ff00, start: [0, 0, 0], end: [0, 2000, 0] }, // Y axis - green
+      { color: 0x0000ff, start: [0, 0, 0], end: [0, 0, 2000] }  // Z axis - blue
+    ];
+
+    debugObjectsRef.current.axes = axes.map(axis => {
+      const material = new THREE.LineBasicMaterial({ 
+        color: axis.color,
+        linewidth: 3
+      });
+      const points = [
+        new THREE.Vector3(...axis.start),
+        new THREE.Vector3(...axis.end)
+      ];
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geometry, material);
+      line.visible = showAxis;
+      scene.add(line);
+      return line;
+    });
+
+    // Create bounding box
+    const boxSize = 2000;
+    const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+    const edges = new THREE.EdgesGeometry(boxGeometry);
+    const boxMaterial = new THREE.LineBasicMaterial({ 
+      color: 0xffffff,
+      linewidth: 2,
+      transparent: true,
+      opacity: 0.5
+    });
+    const boundingBox = new THREE.LineSegments(edges, boxMaterial);
+    boundingBox.position.set(boxSize/2, boxSize/2, boxSize/2);
+    boundingBox.visible = showBoundingBox;
+    scene.add(boundingBox);
+    debugObjectsRef.current.boundingBox = boundingBox;
+  };
+
+  const updateDebugVisibility = useCallback(() => {
+    debugObjectsRef.current.axes.forEach(axis => {
+      axis.visible = showAxis;
+    });
+
+    if (debugObjectsRef.current.boundingBox) {
+      debugObjectsRef.current.boundingBox.visible = showBoundingBox;
+    }
+
+    // Trigger a repaint
+    if (map) {
+      map.triggerRepaint();
+    }
+  }, [showAxis, showBoundingBox, map]);
+
+  // Update debug visibility when visibility states change
+  useEffect(() => {
+    updateDebugVisibility();
+  }, [showAxis, showBoundingBox, updateDebugVisibility]);
+
   useEffect(() => {
     // Update marker position and click handler
     updateMarker();
@@ -135,7 +244,7 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
       }
       if (markerRef.current) {
         markerRef.current.remove();
-        markerRef.current = null; // Reset the ref so a new marker can be created
+        markerRef.current = null;
       }
       
       if (modelRef.current?.busModel) {
@@ -154,8 +263,11 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
           }
         });
       }
+      
+      // Clean up debug objects
+      cleanupDebugObjects();
     };
-  }, [bus, map, onClick]); // Added onClick to dependencies
+  }, [bus, map, onClick, updateDebugVisibility]);
 
   const addModelLayer = () => {
     // Create a THREE.js camera and scene for the custom layer
@@ -187,43 +299,9 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambientLight);
 
-        // Add scene-level axis helper and bounding box in debug mode
+        // Add debug objects if in debug mode
         if (DEBUG_MODE) {
-          // Create custom thick axes
-          const axes = [
-            { color: 0xff0000, start: [0, 0, 0], end: [2000, 0, 0] }, // X axis - red
-            { color: 0x00ff00, start: [0, 0, 0], end: [0, 2000, 0] }, // Y axis - green
-            { color: 0x0000ff, start: [0, 0, 0], end: [0, 0, 2000] }  // Z axis - blue
-          ];
-
-          axes.forEach(axis => {
-            const material = new THREE.LineBasicMaterial({ 
-              color: axis.color,
-              linewidth: 3
-            });
-            const points = [
-              new THREE.Vector3(...axis.start),
-              new THREE.Vector3(...axis.end)
-            ];
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-            const line = new THREE.Line(geometry, material);
-            this.scene.add(line);
-          });
-
-          // Add wireframe bounding box
-          const boxSize = 2000;
-          const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
-          const edges = new THREE.EdgesGeometry(boxGeometry);
-          const boxMaterial = new THREE.LineBasicMaterial({ 
-            color: 0xffffff,  // White color for the box
-            linewidth: 2,
-            transparent: true,
-            opacity: 0.5
-          });
-          const boundingBox = new THREE.LineSegments(edges, boxMaterial);
-          // Center the box
-          boundingBox.position.set(boxSize/2, boxSize/2, boxSize/2);
-          this.scene.add(boundingBox);
+          createDebugObjects(this.scene);
         }
 
         // Load the bus GLB model
@@ -366,6 +444,26 @@ const Bus3DModel: React.FC<Bus3DModelProps> = ({ bus, map, onClick }) => {
           <div>Y: {debugStats.modelY.toFixed(6)}</div>
           <div>Z: {debugStats.modelZ.toFixed(6)}</div>
           <div>Heading: {debugStats.heading.toFixed(2)}°</div>
+          <div className="mt-2 border-t border-white/20 pt-2">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showBoundingBox}
+                onChange={(e) => setShowBoundingBox(e.target.checked)}
+                className="accent-blue-500"
+              />
+              <span>Show Bounding Box</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer mt-1">
+              <input
+                type="checkbox"
+                checked={showAxis}
+                onChange={(e) => setShowAxis(e.target.checked)}
+                className="accent-blue-500"
+              />
+              <span>Show Axis</span>
+            </label>
+          </div>
         </div>
       )}
     </>
